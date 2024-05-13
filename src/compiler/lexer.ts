@@ -113,10 +113,10 @@ export class Lexer {
       if (currentText === '.') {
         // 如果是以小数点开头，
         if (!this.isNumber(this.peek())) {
-          throw lexerMinErr(`解析数字${value}出错，.后面不能为${this.peek()}！`)
+          throw lexerMinErr(`解析数字 "${value}" 出错，"." 后面不能为${this.peek()}！`)
         }
         if (appearedDot) {
-          throw lexerMinErr(`解析数字${value}' + value + '出错，后面不能为.！`)
+          throw lexerMinErr(`解析数字 "${value}" 出错，后面不能为 "."！`)
         }
         value += currentText
         appearedDot = true
@@ -202,5 +202,6 @@ export class Lexer {
       }
       this.index++
     }
+    throw lexerMinErr(`字符串 "${value}" 未解析失败，缺少结束引号。`)
   }
 }

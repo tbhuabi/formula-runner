@@ -164,7 +164,7 @@ export class AST {
 
     if (this.tokens.length !== 0) {
       // 如果项目构建完，但当前的词法单元并未用完，则判定当前表达式不正确
-      throw astMinErr(`表达式：${text}中，${this.tokens[0]}没用使用`)
+      throw astMinErr(`表达式：${text}中，"${this.tokens[0].text}" 没用使用`)
     }
     return value
   }
@@ -226,17 +226,18 @@ export class AST {
   private ternary(): ASTNode {
     // 三元运算 boolean ? trueExpression : falseExpression
     const test = this.logicalOR() //  a || b ? true : false
-    let alternate
-    let consequent
     if (this.expect('?')) {
-      alternate = this.expression()
+      const alternate = this.expression()
       if (this.expect(':')) {
-        consequent = this.expression()
+        const consequent = this.expression()
+        if (!consequent) {
+          throw astMinErr(`条件表达式不正确，缺少 false 分支语句。`)
+        }
         return {
           type: ASTNodeType.ConditionalExpression,
           test: test,
-          alternate: alternate,
-          consequent: consequent
+          alternate,
+          consequent
         }
       }
     }
@@ -248,11 +249,15 @@ export class AST {
     let left = this.logicalAND() // a && b || c;
     while (this.expect('||')) {
       // a || b || c
+      const right = this.logicalAND() // 运算优先级，后面一定不是三目（?:）运算表达式
+      if (typeof right === 'undefined') {
+        throw astMinErr(`${this.text} 不是一个正确的表达式，二元表达式缺少右项。`)
+      }
       left = {
         type: ASTNodeType.LogicalExpression,
         left: left,
         operator: '||',
-        right: this.logicalAND() // 运算优先级，后面一定不是三目（?:）运算表达式
+        right
       }
     }
     return left
@@ -264,11 +269,15 @@ export class AST {
 
     while (this.expect('&&')) {
       //  a && b && c
+      const right = this.equality() // 运算优先级，后面一定不是三目（?:），或者（||）运算表达式
+      if (typeof right === 'undefined') {
+        throw astMinErr(`${this.text} 不是一个正确的表达式，二元表达式缺少右项。`)
+      }
       left = {
         type: ASTNodeType.LogicalExpression,
         left: left,
         operator: '&&',
-        right: this.equality() // 运算优先级，后面一定不是三目（?:），或者（||）运算表达式
+        right
       }
     }
     return left
@@ -283,11 +292,15 @@ export class AST {
       if (!token) {
         break
       }
+      const right = this.relational()
+      if (typeof right === 'undefined') {
+        throw astMinErr(`${this.text} 不是一个正确的表达式，二元表达式缺少右项。`)
+      }
       left = {
         type: ASTNodeType.BinaryExpression,
         left: left,
         operator: token.text as ASTBinaryExpressionNode['operator'],
-        right: this.relational()
+        right
       }
     }
     return left
@@ -302,11 +315,15 @@ export class AST {
       if (!token) {
         break
       }
+      const right = this.additive()
+      if (typeof right === 'undefined') {
+        throw astMinErr(`${this.text} 不是一个正确的表达式，二元表达式缺少右项。`)
+      }
       left = {
         type: ASTNodeType.BinaryExpression,
-        left: left,
+        left,
         operator: token.text as ASTBinaryExpressionNode['operator'],
-        right: this.additive()
+        right
       }
     }
     return left
@@ -321,11 +338,15 @@ export class AST {
       if (!token) {
         break
       }
+      const right = this.multiplicative()
+      if (typeof right === 'undefined') {
+        throw astMinErr(`${this.text} 不是一个正确的表达式，二元表达式缺少右项。`)
+      }
       left = {
         type: ASTNodeType.BinaryExpression,
         left: left,
         operator: token.text as ASTBinaryExpressionNode['operator'],
-        right: this.multiplicative()
+        right
       }
     }
     return left
@@ -339,11 +360,15 @@ export class AST {
       if (!token) {
         break
       }
+      const right = this.unary()
+      if (typeof right === 'undefined') {
+        throw astMinErr(`${this.text} 不是一个正确的表达式，二元表达式缺少右项。`)
+      }
       left = {
         type: ASTNodeType.BinaryExpression,
         left: left,
         operator: token.text as ASTBinaryExpressionNode['operator'],
-        right: this.unary()
+        right
       }
     }
     return left
@@ -352,10 +377,14 @@ export class AST {
   private unary(): ASTNode {
     const token = this.expect('+', '-', '!')
     if (token) {
+      const argument = this.unary()
+      if (!argument) {
+        throw astMinErr(`${this.text} 不是一个正确的表达式，一元表达式缺少右项。`)
+      }
       return {
         type: ASTNodeType.UnaryExpression,
         operator: token.text as ASTUnaryExpressionNode['operator'],
-        argument: this.unary()
+        argument
       }
     }
     // 如果不是以上所有情况，则判定当前表达式的构建逻辑为()优先运算符，或者是[]数组、{}json
@@ -363,7 +392,7 @@ export class AST {
   }
 
   private primary() {
-    let primary: ASTNode
+    let primary: ASTNode | undefined
     if (this.expect('(')) {
       primary = this.filterChain() // 括号内可能包含任意元素
       this.consume(')')
@@ -408,18 +437,15 @@ export class AST {
           arguments: this.parseArguments()
         }
         this.consume(')')
-      } else if (next.text === '.') {
+      } else {
         primary = {
           type: ASTNodeType.MemberExpression,
           primary: primary!,
           property: this.expression()
         }
-      } else {
-        // 如果以上所有情况都不符合，则判定当前表达式不正确
-        throw astMinErr(`${next.text}不是一个正确的表达式`)
       }
     }
-    return primary!
+    return primary
   }
 
   private parseArguments() {
@@ -461,10 +487,7 @@ export class AST {
         } as ASTPropertyNode
         const peek = this.peek()
         if (peek) {
-          if (peek.constant) {
-            // 属性名为true,false,null,undefined
-            property.key = this.constant()
-          } else if (peek.identifier) {
+          if (peek.identifier) {
             property.key = this.identifier()
           } else {
             throw astMinErr(`${peek.text}不能作为一个标识符或属性名！`)
@@ -543,6 +566,6 @@ export class AST {
       const token = this.expect(e1)
       if (token) return token
     }
-    throw astMinErr(`解析表达式出错，${this.text}中缺少${e1}！`)
+    throw astMinErr(`解析表达式出错，${this.text}中缺少 "${e1}"！`)
   }
 }
