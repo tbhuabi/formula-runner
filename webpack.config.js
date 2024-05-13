@@ -1,5 +1,4 @@
 const HtmlWebpackPlugin = require('html-webpack-plugin');
-const webpack = require('webpack');
 const path = require('path');
 const ip = require('ip');
 
@@ -21,12 +20,14 @@ module.exports = {
   },
   devServer: {
     host: ip.address(),
-    contentBase: path.join(__dirname, 'dist'),
+    historyApiFallback: true,
+    static: {
+      directory: path.join(__dirname, 'dist'),
+    },
     compress: true,
-    port: 9007,
+    port: 3333,
     hot: true,
     open: true,
-    disableHostCheck: true
   },
   module: {
     rules: [
@@ -40,11 +41,10 @@ module.exports = {
     // },
       {
       test: /\.ts$/,
-      loader: ['ts-loader']
+      use: ['ts-loader']
     }]
   },
   plugins: [
-    new webpack.HotModuleReplacementPlugin(),
     new HtmlWebpackPlugin({
       template: 'index.html'
     })

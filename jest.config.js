@@ -10,7 +10,7 @@ module.exports = {
   moduleDirectories: ['node_modules', 'src'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
   moduleNameMapper: {
-    '@tanbo/di': '<rootDir>/src/public-api.ts',
+    '@tanbo/formula-runner': '<rootDir>/src/public-api.ts',
     '@tanbo/(.*)': '<rootDir>/src/$1'
   }
 };

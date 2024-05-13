@@ -14,6 +14,7 @@ module.exports = {
     "browser": true,
   },
   "rules": {
+    "indent": ["error", 2],
     "linebreak-style": 0,
     "no-console": 0,
     "@typescript-eslint/no-explicit-any": 0,

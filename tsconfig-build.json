@@ -11,8 +11,7 @@
       "es2018",
       "dom"
     ],
-    "noImplicitAny": false,
-    "suppressImplicitAnyIndexErrors": true,
+    "noImplicitAny": true,
     "downlevelIteration": true,
     "esModuleInterop": true,
     "baseUrl": "./",
